@@ -1,0 +1,7 @@
+# Ambiente recomendado: Python 3.12
+
+numpy==1.26.4
+protobuf==4.25.8
+opencv-python==4.11.0.86
+mediapipe==0.10.21
+ultralytics==8.3.246
