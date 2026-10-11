@@ -1046,6 +1046,7 @@ def finalizar_fechamento(
     maior_tempo_fechado,
     evento_piscada,
     evento_sonolencia,
+    olhos_reabriram=True,
 ):
     if inicio_fechado is None:
         return (
@@ -1065,14 +1066,14 @@ def finalizar_fechamento(
         duracao,
     )
 
-    # A piscada prolongada só é confirmada quando os olhos reabrem.
-    # Se o fechamento atingir 2 s antes da reabertura, é sonolência.
+    # Sonolência é confirmada com 2 s ou mais de fechamento contínuo.
     if duracao >= TEMPO_FECHADO:
         evento_sonolencia = True
 
+    # Piscada prolongada só é confirmada após a reabertura dos olhos.
     elif (
-        duracao
-        >= TEMPO_PISCADA_PROLONGADA
+        olhos_reabriram
+        and duracao >= TEMPO_PISCADA_PROLONGADA
     ):
         evento_piscada = True
 
@@ -1412,6 +1413,7 @@ def avaliar_video(
             maior_tempo_fechado,
             evento_piscada,
             evento_sonolencia,
+            olhos_reabriram=False,
         )
 
     classe_prevista = classificar_video(
