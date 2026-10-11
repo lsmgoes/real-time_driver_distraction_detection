@@ -6,6 +6,8 @@
 # py -3.12 -m venv .venv
 # .\.venv\Scripts\Activate.ps1
 # python -m pip install -r requirements.txt
+#
+# Para encerrar o funcionamento, pressione ESC
 
 import cv2
 import mediapipe as mp
