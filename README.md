@@ -16,12 +16,6 @@ O projeto também disponibiliza um módulo específico para avaliação experime
 
 ---
 
-## Objetivo
-
-Desenvolver e avaliar um sistema baseado em inteligência artificial para a detecção simultânea e em tempo real de distrações de motoristas, por meio da integração entre os modelos YOLOv8 e MediaPipe, com emissão de alertas sonoros e visuais.
-
----
-
 ## Arquitetura Proposta
 
 A arquitetura integra dois módulos principais de Visão Computacional:
