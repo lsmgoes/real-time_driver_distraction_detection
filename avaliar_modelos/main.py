@@ -304,14 +304,19 @@ def letra_modelo(modelo_nome):
 
 
 def carregar_modelo(modelo_arquivo):
+    caminho_modelo = BASE_DIR / modelo_arquivo
+
     try:
+        if caminho_modelo.exists():
+            return YOLO(str(caminho_modelo))
+
         return YOLO(modelo_arquivo)
 
     except Exception as erro:
         raise RuntimeError(
             f"Não foi possível carregar {modelo_arquivo}. "
-            "Na primeira execução, os pesos podem precisar ser baixados. "
-            "Verifique a conexão com a internet e tente novamente."
+            "Verifique se o peso está na pasta avaliar_modelos "
+            "ou se há conexão com a internet para o download automático."
         ) from erro
 
 
