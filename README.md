@@ -2,10 +2,6 @@
 
 ### Arquitetura multimodal baseada em YOLOv8 e MediaPipe para monitoramento simultâneo de distrações em hardware com recursos computacionais limitados.
 
-## Repositório
-
-https://github.com/lsmgoes/real-time_driver_distraction_detection
-
 ---
 
 ## Sobre
@@ -43,6 +39,8 @@ Os resultados são encaminhados para a lógica de decisão do sistema, responsá
                                 ▼
                        Pré-processamento
                                 │
+                                │
+                          Processamento
                  ┌──────────────┴──────────────┐
                  │                             │
                  ▼                             ▼
