@@ -1,1 +1,11 @@
+# Ambiente recomendado: Python 3.12
+# Para GPU NVIDIA, o PyTorch com suporte à CUDA deve ser instalado de acordo com a GPU/driver da máquina.
+
+numpy==1.26.4
+protobuf==4.25.8
+opencv-contrib-python==4.11.0.86
+mediapipe==0.10.21
+ultralytics==8.3.246
+matplotlib>=3.7,<4
+scikit-learn>=1.4,<2
 
