@@ -34,6 +34,7 @@ TEMPO_FECHADO = 2.0
 FRAMES_CONSECUTIVOS_FECHADO = 2
 
 # Celular
+MODELO_YOLO = "yolov8m.pt" # Para trocar a variante, altere somente a letra do modelo n, s, m, l ou x
 PULAR_FRAMES_YOLO = 1.5
 CONFIANCA_CELULAR = 0.50
 YOLO_IMGSZ = 320
@@ -124,14 +125,12 @@ video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 # YOLO
 BASE_DIR = Path(__file__).resolve().parent
-CAMINHO_MODELO = BASE_DIR.parent / "models" / "yolov8m.pt"
+CAMINHO_MODELO = BASE_DIR / MODELO_YOLO
 
-if not CAMINHO_MODELO.exists():
-    raise FileNotFoundError(
-        f"Modelo YOLO não encontrado: {CAMINHO_MODELO}"
-    )
-
-modelo = YOLO(str(CAMINHO_MODELO))
+if CAMINHO_MODELO.exists():
+    modelo = YOLO(str(CAMINHO_MODELO))
+else:
+    modelo = YOLO(MODELO_YOLO)
 
 # MediaPipe
 mp_face_mesh = mp.solutions.face_mesh
