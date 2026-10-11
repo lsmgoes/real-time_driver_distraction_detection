@@ -18,36 +18,44 @@ O projeto também disponibiliza um módulo específico para avaliação experime
 
 ## Arquitetura Proposta
 
-A arquitetura integra dois módulos principais de Visão Computacional:
+A arquitetura integra três etapas principais: **pré-processamento**, **detecção multimodal** e **módulo de decisão**.
 
-- **YOLOv8:** responsável pela detecção do telefone celular;
-- **MediaPipe Face Mesh:** responsável pelo rastreamento facial e análise dos movimentos oculares.
+Na etapa de detecção multimodal, o YOLOv8 é utilizado para identificar a presença do telefone celular, enquanto o MediaPipe Face Mesh realiza o rastreamento facial e fornece os landmarks utilizados para análise ocular por meio do Eye Aspect Ratio (EAR).
 
-Os frames capturados pela câmera são processados pelos dois módulos de detecção.
-
-Os resultados são encaminhados para a lógica de decisão do sistema, responsável pela definição do estado monitorado e pela emissão dos alertas correspondentes.
+Os resultados obtidos pelos módulos de detecção são encaminhados para a lógica de decisão, responsável pela interpretação das condições identificadas e pela emissão dos alertas correspondentes.
 
 ```text
-                         Captura de vídeo
-                                │
-                                ▼
-                       Pré-processamento
-                                │
-                                │
-                          Processamento
-                 ┌──────────────┴──────────────┐
-                 │                             │
-                 ▼                             ▼
-              YOLOv8                      MediaPipe
-       Detecção de celular              Face Mesh + EAR
-                 │                             │
-                 └──────────────┬──────────────┘
-                                │
-                                ▼
-                        Lógica de decisão
-                                │
-                                ▼
-                    Alertas sonoros e visuais
+Entrada de vídeo
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                                          LOOP                                            │
+│                                                                                          │
+│  ┌────────────────────────┐     ┌────────────────────────────┐    ┌────────────────────┐ │
+│  │    Pré-processamento   │     │     Detecção Multimodal    │    │  Módulo de Decisão │ │
+│  │                        │     │                            │    │                    │ │
+│  │  Aquisição de frames   │     │  YOLOv8                    │    │  Confiança > 0,5   │ │
+│  │                        │───▶│  Detecção de celular       │───▶│                    │ │
+│  │  OpenCV                │     │                            │    │  Condições         │ │
+│  │  640 × 480 pixels      │     │  MediaPipe Face Mesh       │    │                    │ │
+│  │  Formato RGB           │     │  Análise pelo EAR          │    │  Olhos fechados    │ │
+│  │                        │     │                            │    │  ≥ 2 s             │ │
+│  └────────────────────────┘     └────────────────────────────┘    └────────────────────┘ │
+│                                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                             │
+                                                                             ▼
+                                                                   ┌────────────────────┐
+                                                                   │       Saída        │
+                                                                   │                    │
+                                                                   │    ALERTA SONO     │
+                                                                   │                    │
+                                                                   │      ACORDADO      │
+                                                                   │                    │
+                                                                   │    SEM CELULAR     │
+                                                                   │                    │
+                                                                   │  ALERTA CELULAR    │
+                                                                   └────────────────────┘
 ```
 
 ---
@@ -66,13 +74,33 @@ As seguintes variantes do YOLOv8 são utilizadas no módulo de avaliação:
 - YOLOv8l
 - YOLOv8x
 
-No módulo de execução em tempo real localizado em `detector/`, é utilizado o modelo **YOLOv8m**.
+No módulo de execução em tempo real localizado em `detector/`, o modelo configurado por padrão é o **YOLOv8m**.
 
-Os pesos dos modelos estão disponíveis na pasta:
+A variante utilizada pode ser alterada diretamente no arquivo `detector/main.py` modificando apenas a letra correspondente ao modelo:
+
+```python
+MODELO_YOLO = "yolov8m.pt"
+```
+
+As variantes disponíveis são:
 
 ```text
-models/
+n = YOLOv8n
+s = YOLOv8s
+m = YOLOv8m
+l = YOLOv8l
+x = YOLOv8x
 ```
+
+O peso padrão utilizado pelo detector encontra-se em:
+
+```text
+detector/yolov8m.pt
+```
+
+O sistema verifica inicialmente se o peso correspondente ao modelo selecionado está disponível na própria pasta `detector/`.
+
+Caso o arquivo não esteja disponível localmente, a biblioteca Ultralytics poderá realizar o download automático do peso correspondente.
 
 ---
 
@@ -84,13 +112,13 @@ A abertura dos olhos é analisada por meio do **Eye Aspect Ratio (EAR)**, calcul
 
 Antes do monitoramento, o sistema realiza uma etapa de **calibração de 2,5 segundos**, utilizada para estabelecer valores de referência individuais para cada olho.
 
-A partir desses valores são definidos limiares adaptativos de fechamento ocular.
-
-O limiar é calculado a partir de **72% do EAR de referência**, respeitando os limites definidos no sistema.
+A partir dos valores obtidos pelo EAR são definidos limiares adaptativos de fechamento ocular, permitindo ajustar a análise às características individuais observadas durante a calibração.
 
 Quando ambos os olhos permanecem abaixo dos respectivos limiares durante período igual ou superior a **2 segundos**, o sistema identifica a condição de sonolência e aciona o alerta correspondente.
 
 Também são utilizados critérios de persistência temporal e suavização do EAR para reduzir alterações provocadas por variações isoladas entre frames consecutivos.
+
+No módulo de avaliação experimental, fechamentos oculares com duração inferior ao limite de sonolência podem ser classificados como **Pisc_prolongada**, desde que seja identificada posteriormente a reabertura dos olhos. Caso o fechamento alcance o tempo definido para sonolência, o evento passa a ser classificado como **Sonolencia**.
 
 ---
 
@@ -183,6 +211,27 @@ YOLOv8x
 
 Os modelos são avaliados sequencialmente utilizando a mesma base experimental.
 
+Os pesos correspondentes às cinco variantes encontram-se diretamente na pasta `avaliar_modelos/`:
+
+```text
+avaliar_modelos/
+├── yolov8n.pt
+├── yolov8s.pt
+├── yolov8m.pt
+├── yolov8l.pt
+└── yolov8x.pt
+```
+
+Durante a execução, o sistema verifica inicialmente a existência de cada peso na própria pasta.
+
+Caso algum arquivo não esteja disponível localmente, a biblioteca Ultralytics poderá realizar o download automático do modelo correspondente.
+
+Antes da avaliação das variantes do YOLOv8, cada vídeo passa por uma etapa individual de calibração do EAR.
+
+A calibração é realizada uma única vez para cada vídeo, e os valores obtidos são utilizados nas avaliações das cinco variantes, mantendo a mesma referência ocular durante a comparação entre os modelos.
+
+Os modelos são avaliados sequencialmente, evitando a execução simultânea das variantes durante a medição de desempenho.
+
 As métricas calculadas são:
 
 - **Acurácia**
@@ -193,7 +242,7 @@ As métricas calculadas são:
 
 O módulo também permite gerar automaticamente:
 
-- arquivos CSV com os resultados;
+- arquivos CSV com os resultados por vídeo;
 - métricas consolidadas;
 - métricas por classe;
 - matrizes de confusão;
@@ -206,22 +255,39 @@ Os arquivos produzidos durante a execução são armazenados localmente em:
 avaliar_modelos/resultados/
 ```
 
-A pasta de resultados não precisa ser mantida no repositório, pois seu conteúdo pode ser reproduzido executando novamente o módulo de avaliação.
+A organização dos resultados é realizada separadamente de acordo com o dispositivo de processamento utilizado e com a variante do YOLOv8 avaliada.
+
+Exemplo:
+
+```text
+resultados/
+└── CPU/
+    ├── YOLOv8n/
+    ├── YOLOv8s/
+    ├── YOLOv8m/
+    ├── YOLOv8l/
+    └── YOLOv8x/
+```
+
+A mesma organização pode ser utilizada para avaliações realizadas em GPU.
 
 ---
 
 ## Modelos e Pesos
 
-Os pesos utilizados estão disponíveis na pasta:
+Os pesos dos modelos foram organizados junto aos respectivos módulos do projeto.
+
+Para o detector em tempo real:
 
 ```text
-models/
+detector/
+└── yolov8m.pt
 ```
 
-Estrutura:
+Para a avaliação experimental:
 
 ```text
-models/
+avaliar_modelos/
 ├── yolov8n.pt
 ├── yolov8s.pt
 ├── yolov8m.pt
@@ -229,32 +295,11 @@ models/
 └── yolov8x.pt
 ```
 
-O módulo de detecção em tempo real utiliza:
+O modelo padrão do detector é o **YOLOv8m**, enquanto o módulo de avaliação utiliza sequencialmente as cinco variantes.
 
-```text
-yolov8m.pt
-```
+Essa organização permite que cada módulo localize diretamente os pesos necessários a partir de sua própria pasta.
 
-O módulo de avaliação utiliza as cinco variantes disponibilizadas.
-
-Os arquivos `.pt` são armazenados no repositório utilizando **Git LFS** devido ao tamanho dos modelos.
-
----
-
-## Configurações Principais
-
-Entre os principais parâmetros utilizados pelo sistema estão:
-
-```text
-Tempo de calibração do EAR: 2,5 s
-Fator do limiar adaptativo do EAR: 0,72
-Tempo para identificação de sonolência: 2,0 s
-Confiança mínima para detecção de celular: 0,50
-Suavização exponencial do EAR: α = 0,35
-Classe YOLO utilizada para celular: 67
-```
-
-Outros parâmetros relacionados à resolução, região facial, pré-processamento, CLAHE, ajuste de luminosidade e processamento das imagens encontram-se definidos diretamente nos scripts.
+Caso um peso solicitado pelo código não esteja disponível localmente, o sistema utiliza o mecanismo de carregamento da biblioteca Ultralytics para obtenção do modelo correspondente.
 
 ---
 
@@ -296,40 +341,6 @@ avaliar_modelos/requirements.txt
 ```
 
 O ambiente recomendado para execução é **Python 3.12**.
-
----
-
-## Instalação
-
-### 1. Instalar o Git LFS
-
-O repositório utiliza **Git LFS** para armazenar os vídeos da base experimental e os pesos dos modelos.
-
-Caso o Git LFS ainda não esteja instalado:
-
-```bash
-git lfs install
-```
-
-### 2. Clonar o repositório
-
-```bash
-git clone https://github.com/lsmgoes/real-time_driver_distraction_detection.git
-```
-
-Entre na pasta:
-
-```bash
-cd real-time_driver_distraction_detection
-```
-
-### 3. Baixar os arquivos armazenados no Git LFS
-
-```bash
-git lfs pull
-```
-
-Esse comando garante o download dos vídeos da base experimental e dos pesos dos modelos YOLOv8.
 
 ---
 
@@ -375,59 +386,41 @@ para encerrar o sistema.
 
 ---
 
-## Execução da Avaliação dos Modelos
-
-Entre na pasta:
-
-```bash
-cd avaliar_modelos
-```
-
-Crie o ambiente virtual:
-
-```bash
-py -3.12 -m venv .venv
-```
-
-Ative o ambiente:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-Instale as dependências:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Execute:
-
-```bash
-python main.py
-```
-
----
-
 ## Execução em CPU ou GPU
 
-O dispositivo de processamento pode ser configurado no script de avaliação.
+O dispositivo de processamento utilizado no módulo de avaliação pode ser configurado diretamente no arquivo:
 
-### CPU
+```text
+avaliar_modelos/main.py
+```
+
+Para execução em CPU:
 
 ```python
 DEVICE = "cpu"
 ```
 
-### GPU NVIDIA
+Para execução em GPU NVIDIA com CUDA:
 
 ```python
 DEVICE = 0
 ```
 
+Antes da execução em GPU, pode-se verificar a disponibilidade do CUDA no ambiente Python utilizando:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+O resultado esperado para utilização da GPU é:
+
+```text
+True
+```
+
 Para utilização da GPU NVIDIA, o **PyTorch com suporte à CUDA** deve estar instalado de forma compatível com a GPU e com a versão do CUDA disponível na máquina.
 
-As avaliações em CPU e GPU devem ser executadas separadamente.
+As avaliações em CPU e GPU devem ser executadas separadamente, evitando interferência entre as medições de desempenho.
 
 ---
 
@@ -435,24 +428,24 @@ As avaliações em CPU e GPU devem ser executadas separadamente.
 
 ```text
 real-time_driver_distraction_detection/
-
+│
 ├── README.md
 ├── .gitattributes
 │
-├── models/
-│   ├── yolov8n.pt
-│   ├── yolov8s.pt
-│   ├── yolov8m.pt
-│   ├── yolov8l.pt
-│   └── yolov8x.pt
-│
 ├── detector/
 │   ├── main.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── yolov8m.pt
 │
 └── avaliar_modelos/
     ├── main.py
     ├── requirements.txt
+    ├── yolov8n.pt
+    ├── yolov8s.pt
+    ├── yolov8m.pt
+    ├── yolov8l.pt
+    ├── yolov8x.pt
+    │
     └── dataset/
         ├── Det_celular/
         ├── Normal/
@@ -477,48 +470,28 @@ Contém a implementação utilizada para execução em tempo real, incluindo:
 - calibração individual dos olhos;
 - lógica temporal de fechamento ocular;
 - alertas sonoros;
-- alertas visuais.
+- alertas visuais;
+- seleção da variante do YOLOv8;
+- carregamento do peso disponível localmente;
+- obtenção automática do modelo quando o peso selecionado não estiver disponível.
 
 ### `avaliar_modelos/main.py`
 
 Contém a implementação destinada à avaliação experimental, incluindo:
 
 - leitura automática da base de vídeos;
+- calibração individual do EAR para cada vídeo;
 - avaliação sequencial das variantes do YOLOv8;
 - integração com MediaPipe e EAR;
+- detecção de celular;
+- identificação de piscada prolongada;
+- identificação de sonolência;
 - processamento em CPU ou GPU;
+- medição do FPS de processamento;
 - cálculo das métricas;
 - geração das matrizes de confusão;
 - geração dos gráficos;
-- exportação dos resultados em arquivos CSV.
-
----
-
-## Arquivos de Configuração
-
-O projeto utiliza os seguintes arquivos principais de configuração:
-
-```text
-detector/requirements.txt
-avaliar_modelos/requirements.txt
-.gitattributes
-```
-
-Os arquivos `requirements.txt` especificam as dependências necessárias para cada módulo.
-
-O arquivo `.gitattributes` configura o uso do **Git LFS** para os vídeos `.mp4` e para os pesos `.pt`.
-
----
-
-## Observações
-
-O projeto foi desenvolvido prioritariamente para ambiente **Windows**.
-
-O módulo de execução em tempo real utiliza recursos específicos desse sistema operacional, como:
-
-- `winsound`;
-- captura de câmera utilizando DirectShow.
-
-Os arquivos de vídeo `.mp4` e os pesos dos modelos `.pt` são gerenciados por meio do **Git LFS**.
-
-Os resultados experimentais obtidos durante a pesquisa não são apresentados neste README. Este repositório concentra os códigos, modelos, base experimental, dependências e instruções necessárias para reprodução da metodologia.
+- geração da tabela consolidada;
+- exportação dos resultados em arquivos CSV;
+- carregamento dos pesos disponíveis na própria pasta;
+- obtenção automática de um modelo caso o peso correspondente não esteja disponível localmente.
