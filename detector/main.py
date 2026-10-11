@@ -15,6 +15,7 @@ import threading
 import numpy as np
 from ultralytics import YOLO
 import winsound
+from pathlib import Path
 
 # Configurações gerais
 PERIODO = 1 / 30
@@ -120,7 +121,15 @@ video.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUCAO_CAPTURA[1])
 video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 # YOLO
-modelo = YOLO("yolov8m.pt")
+BASE_DIR = Path(__file__).resolve().parent
+CAMINHO_MODELO = BASE_DIR.parent / "models" / "yolov8m.pt"
+
+if not CAMINHO_MODELO.exists():
+    raise FileNotFoundError(
+        f"Modelo YOLO não encontrado: {CAMINHO_MODELO}"
+    )
+
+modelo = YOLO(str(CAMINHO_MODELO))
 
 # MediaPipe
 mp_face_mesh = mp.solutions.face_mesh
